@@ -1,33 +1,61 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useRef, useEffect } from 'react'
+import mapboxgl, { Map } from 'mapbox-gl'
+
+import 'mapbox-gl/dist/mapbox-gl.css';
+
 import './App.css'
+import { atom, useAtom } from 'jotai';
+
+interface MapState {
+  center: [number, number],
+  zoom: number
+}
+
+const mapInfo = atom<MapState>({
+  center: [-46.633308, -23.550520],
+  zoom: 10.12
+})
 
 function App() {
-  const [count, setCount] = useState(0)
+  const mapRef = useRef<Map>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  
+  const [map, setMap] = useAtom<MapState>(mapInfo)
 
+  useEffect(() => {
+    mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY
+    mapRef.current = new mapboxgl.Map({
+      container: mapContainerRef.current as HTMLElement,
+      center: map.center,
+      zoom: map.zoom
+    })
+
+    mapRef.current.on('move', () => {
+      console.log('render')
+
+      if (!mapRef.current) return
+
+      const mapCenter = mapRef.current.getCenter()
+      const mapZoom = mapRef.current.getZoom()
+
+      setMap(state => ({
+        ...state,
+        center: [mapCenter.lng, mapCenter.lat],
+        zoom: mapZoom
+      }))
+    })
+
+    return () => {
+      mapRef.current?.remove()
+    }
+  }, [map.center, map.zoom, setMap])
+ 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <div className="sidebar">
+        Longitude: {map.center[0].toFixed(4)} | Latitude: {map.center[1].toFixed(4)} | Zoom: {map.zoom.toFixed(2)}
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <div id='map-container' ref={mapContainerRef} />
     </>
   )
 }
